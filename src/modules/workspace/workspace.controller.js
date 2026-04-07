@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
-import * as workspaceService from "./workspace.service";
+import * as workspaceService from "./workspace.service.js";
+import { BadRequestError } from "../../common/errors/base.error.js";
 
-export const createWorkspace = async (req, res) => {
+export const createWorkspace = async (req, res, next) => {
   try {
     const workspace = await workspaceService.createWorkspace({
       name: req.body.name,
@@ -10,11 +10,11 @@ export const createWorkspace = async (req, res) => {
 
     res.status(201).json(workspace);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    next(error);
   }
 };
 
-export const getMyWorkspaces = async (req, res) => {
+export const getMyWorkspaces = async (req, res, next) => {
   try {
     const workspaces = await workspaceService.getUserWorkspaces(
       req.user.id
@@ -22,6 +22,6 @@ export const getMyWorkspaces = async (req, res) => {
 
     res.json(workspaces);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };

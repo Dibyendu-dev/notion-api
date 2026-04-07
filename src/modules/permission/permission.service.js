@@ -1,4 +1,4 @@
-import { Workspace } from "../workspace/workspace.model";
+import { Workspace } from "../workspace/workspace.model.js";
 
 const ROLE_PERMISSIONS = {
   admin: ["read", "write", "delete", "share"],
@@ -7,6 +7,8 @@ const ROLE_PERMISSIONS = {
 };
 
 export const hasPermission = async ({ userId, workspaceId, action }) => {
+  if (!workspaceId) return false;
+
   const ws = await Workspace.findOne({
     _id: workspaceId,
     "members.userId": userId

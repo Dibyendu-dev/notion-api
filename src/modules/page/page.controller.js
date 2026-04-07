@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
-import * as pageService from "./page.service";
+import * as pageService from "./page.service.js";
+import { NotFoundError, BadRequestError } from "../../common/errors/base.error.js";
 
-export const createPage = async (req, res) => {
+export const createPage = async (req, res, next) => {
   try {
     const page = await pageService.createPage({
       ...req.body,
@@ -9,33 +9,35 @@ export const createPage = async (req, res) => {
     });
     res.status(201).json(page);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    next(error);
   }
 };
 
-export const getPage = async (req, res) => {
+export const getPage = async (req, res, next) => {
   try {
     const page = await pageService.getPage(req.params.id);
+    if (!page) return next(new NotFoundError("Page not found"));
     res.json(page);
   } catch (error) {
-    res.status(404).json({ error: error.message });
+    next(error);
   }
 };
 
-export const getFullPage = async (req, res) => {
+export const getFullPage = async (req, res, next) => {
   try {
-    const page = await pageService.getFullPage(req.params.id);
-    res.json(page);
+    const result = await pageService.getFullPage(req.params.id);
+    if (!result.page) return next(new NotFoundError("Page not found"));
+    res.json(result);
   } catch (error) {
-    res.status(404).json({ error: error.message });
+    next(error);
   }
 };
 
-export const deletePage = async (req, res) => {
+export const deletePage = async (req, res, next) => {
   try {
     await pageService.deletePage(req.params.id);
     res.json({ message: "Page deleted" });
   } catch (error) {
-    res.status(404).json({ error: error.message });
+    next(error);
   }
 };

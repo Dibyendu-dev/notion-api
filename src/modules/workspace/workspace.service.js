@@ -1,6 +1,11 @@
-import { Workspace } from "./workspace.model";
+import { Workspace } from "./workspace.model.js";
+import { NotFoundError, BadRequestError } from "../../common/errors/base.error.js";
 
 export const createWorkspace = async (data) => {
+  if (!data.name) {
+    throw new BadRequestError("Workspace name is required");
+  }
+
   const workspace = await Workspace.create({
     ...data,
     members: [
@@ -14,7 +19,7 @@ export const createWorkspace = async (data) => {
   return workspace;
 };
 
-export const getUserWorkspaces = async (userId ) => {
+export const getUserWorkspaces = async (userId) => {
   return Workspace.find({
     "members.userId": userId
   });
@@ -26,15 +31,15 @@ export const addMember = async (
   role
 ) => {
   const workspace = await Workspace.findById(workspaceId);
-  
-  if (!workspace) throw new Error("Workspace not found");
-  
+
+  if (!workspace) throw new NotFoundError("Workspace not found");
+
   const existingMember = workspace.members.find(
     (m) => m.userId.toString() === userId
   );
-  
+
   if (existingMember) {
-    throw new Error("User is already a member of this workspace");
+    throw new BadRequestError("User is already a member of this workspace");
   }
 
   return Workspace.findByIdAndUpdate(
@@ -52,6 +57,10 @@ export const removeMember = async (
   workspaceId,
   userId
 ) => {
+  const workspace = await Workspace.findById(workspaceId);
+
+  if (!workspace) throw new NotFoundError("Workspace not found");
+
   return Workspace.findByIdAndUpdate(
     workspaceId,
     {

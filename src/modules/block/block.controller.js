@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
-import * as blockService from "./block.service";
+import * as blockService from "./block.service.js";
+import { NotFoundError, BadRequestError } from "../../common/errors/base.error.js";
 
-export const createBlock = async (req, res) => {
+export const createBlock = async (req, res, next) => {
   try {
     const block = await blockService.createBlock({
       ...req.body,
@@ -9,15 +9,15 @@ export const createBlock = async (req, res) => {
     });
     res.status(201).json(block);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    next(error);
   }
 };
 
-export const getBlockTree = async (req, res) => {
+export const getBlockTree = async (req, res, next) => {
   try {
     const data = await blockService.getBlockTree(req.params.id);
     res.json(data);
   } catch (error) {
-    res.status(404).json({ error: error.message });
+    next(error);
   }
 };

@@ -1,6 +1,11 @@
-import { Block } from "./block.model";
+import { Block } from "./block.model.js";
+import { NotFoundError, BadRequestError } from "../../common/errors/base.error.js";
 
 export const createBlock = async (data) => {
+  if (!data.type) {
+    throw new BadRequestError("Block type is required");
+  }
+
   let path = data.path || "";
 
   if (data.parentId) {
@@ -27,7 +32,7 @@ export const createBlock = async (data) => {
 export const getBlockTree = async (rootId) => {
   const root = await Block.findById(rootId);
 
-  if (!root) throw new Error("Block not found");
+  if (!root) throw new NotFoundError("Block not found");
 
   const children = await Block.find({
     path: { $regex: `^${root.path || root._id}` }

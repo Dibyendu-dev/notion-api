@@ -1,18 +1,16 @@
 import { createClerkClient } from "@clerk/express";
+import jwt from "jsonwebtoken";
 import { BadRequestError, UnauthorizedError } from "../../common/errors/base.error.js";
+import { sendMagicLinkEmail } from "../../common/services/email.service.js";
 
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
 export const register = async (req, res, next) => {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { email, firstName, lastName } = req.body;
 
-    if (!email || !password) {
-      throw new BadRequestError("Email and password are required");
-    }
-
-    if (password.length < 8) {
-      throw new BadRequestError("Password must be at least 8 characters");
+    if (!email) {
+      throw new BadRequestError("Email is required");
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,7 +29,6 @@ export const register = async (req, res, next) => {
 
     const user = await clerk.users.createUser({
       emailAddress: [email],
-      password: password,
       firstName: firstName || "User",
       lastName: lastName || "",
     });
@@ -53,15 +50,6 @@ export const register = async (req, res, next) => {
       if (clerkError.code === "form_identifier_exists") {
         return next(new BadRequestError("User with this email already exists"));
       }
-      if (clerkError.code === "form_password_length_too_short") {
-        return next(new BadRequestError("Password must be at least 8 characters"));
-      }
-      if (clerkError.code === "form_password_requirement_not_met") {
-        return next(new BadRequestError("Password must contain at least one uppercase letter, lowercase letter, and number"));
-      }
-      if (clerkError.code === "form_password_pwned") {
-        return next(new BadRequestError("Password has been found in a data breach. Please choose a different password"));
-      }
       return next(new BadRequestError(clerkError.message || "Registration failed"));
     }
     
@@ -71,10 +59,15 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email } = req.body;
 
-    if (!email || !password) {
-      throw new BadRequestError("Email and password are required");
+    if (!email) {
+      throw new BadRequestError("Email is required");
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new BadRequestError("Invalid email format");
     }
 
     const users = await clerk.users.getUserList({
@@ -83,54 +76,74 @@ export const login = async (req, res, next) => {
     });
 
     if (users.data.length === 0) {
-      throw new UnauthorizedError("Invalid email or password");
+      return res.status(200).json({
+        message: "If an account with that email exists, a magic link has been sent",
+      });
     }
 
     const user = users.data[0];
 
-    try {
-      const signInAttempt = await clerk.signIns.createSignInAttempt({
-        identifier: email,
-        password: password,
-      });
+    const signInToken = await clerk.signInTokens.createSignInToken({
+      userId: user.id,
+      expiresInSeconds: 600,
+    });
 
-      if (signInAttempt.status !== "complete" || !signInAttempt.createdSessionId) {
-        throw new UnauthorizedError("Invalid email or password");
-      }
+    const magicLinkUrl = `${process.env.APP_URL || "http://localhost:3000"}/api/auth/verify?token=${signInToken.token}`;
 
-      const session = await clerk.sessions.createSession(signInAttempt.createdSessionId);
+    await sendMagicLinkEmail(email, magicLinkUrl, user.firstName);
 
-      res.json({
-        message: "Login successful",
-        user: {
-          id: user.id,
-          email: user.emailAddresses[0]?.emailAddress,
-          firstName: user.firstName,
-          lastName: user.lastName,
-        },
-        token: session.token,
-        sessionId: session.id,
-      });
-    } catch (signInError) {
-      throw new UnauthorizedError("Invalid email or password");
-    }
+    res.json({
+      message: "If an account with that email exists, a magic link has been sent",
+    });
   } catch (error) {
+    console.error("Login error:", error);
+    next(error);
+  }
+};
+
+export const verify = async (req, res, next) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      throw new BadRequestError("Token is required");
+    }
+
+    const signInToken = await clerk.signInTokens.getSignInToken(token);
+
+    if (!signInToken || signInToken.status !== "pending") {
+      throw new UnauthorizedError("Invalid or expired token");
+    }
+
+    const user = await clerk.users.getUser(signInToken.userId);
+
+    const jwtToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.emailAddresses[0]?.emailAddress,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      message: "Login successful",
+      token: jwtToken,
+      user: {
+        id: user.id,
+        email: user.emailAddresses[0]?.emailAddress,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    });
+  } catch (error) {
+    console.error("Verify error:", error);
     next(error);
   }
 };
 
 export const logout = async (req, res, next) => {
-  try {
-    const { sessionId } = req.body;
-    
-    if (sessionId) {
-      await clerk.sessions.revokeSession(sessionId);
-    }
-
-    res.json({ message: "Logged out successfully" });
-  } catch (error) {
-    next(error);
-  }
+  res.json({ message: "Logged out successfully" });
 };
 
 export const getMe = async (req, res, next) => {

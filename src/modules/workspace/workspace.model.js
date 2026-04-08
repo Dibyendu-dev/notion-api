@@ -2,10 +2,10 @@ import mongoose from "mongoose";
 
 const schema = new mongoose.Schema({
   name: String,
-  ownerId: mongoose.Types.ObjectId,
+  ownerId: String,
   members: [
     {
-      userId: mongoose.Types.ObjectId,
+      userId: String,
       role: {
         type: String,
         enum: ["admin", "editor", "viewer"],

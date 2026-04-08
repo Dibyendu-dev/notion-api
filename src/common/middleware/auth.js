@@ -1,18 +1,17 @@
-import jwt from "jsonwebtoken";
-import { UnauthorizedError } from "./errors/base.error.js";
+import { authenticateRequest } from "@clerk/express";
+import { UnauthorizedError } from "../errors/base.error.js";
 
-export const auth = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!token) {
-    return next(new UnauthorizedError("No token provided"));
-  }
-
+export const auth = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    const { userId } = await authenticateRequest(req);
+    
+    if (!userId) {
+      return next(new UnauthorizedError("Not authenticated"));
+    }
+    
+    req.user = { id: userId };
     next();
-  } catch {
-    return next(new UnauthorizedError("Invalid token"));
+  } catch (error) {
+    next(new UnauthorizedError("Authentication failed"));
   }
 };

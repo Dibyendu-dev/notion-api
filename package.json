@@ -4,17 +4,25 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clerk:create-user": "node scripts/create-test-user.js",
+    "clerk:get-token": "node scripts/get-token.js",
+    "clerk:list-users": "node scripts/list-users.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@clerk/express": "^2.0.11",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "ioredis": "^5.10.1",
-    "jsonwebtoken": "^9.0.2",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.0.1"
   }
 }
